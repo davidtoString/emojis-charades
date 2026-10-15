@@ -1,9 +1,5 @@
 {
   "name": "emoji-charades",
   "version": "1.0.0",
-  "description": "Emoji Charades - Remote Team Edition",
-  "scripts": {
-    "start": "node server.js",
-    "build": "echo 'Static build ready'"
-  }
+  "description": "Emoji Charades - Remote Team Edition"
 }
