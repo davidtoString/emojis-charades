@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emoji Charades - Remote Team Game Night</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22><text y=%2226%22 font-size=%2228%22>🎭</text></svg>">
+  <!-- PeerJS WebRTC P2P mesh for remote team rooms -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+  <!-- Canvas for Confetti -->
+  <canvas id="confetti-canvas"></canvas>
+  <!-- Full-screen celebratory flash on correct answer -->
+  <div id="screen-flash" class="screen-flash-cue"></div>
+
+  <!-- Top Navigation Bar -->
+  <header>
+    <div class="logo-area">
+      <span class="logo-icon">🎭</span>
+      <div>
+        <h1 class="logo-title">Emoji Charades</h1>
+      </div>
+      <div id="room-code-badge" class="room-badge" style="display: none;">
+        <span>Room:</span>
+        <strong id="display-room-code">----</strong>
+        <button id="btn-copy-invite" class="btn btn-sm btn-secondary" title="Copy shareable join link">🔗 Copy Link</button>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <button id="btn-sound-toggle" class="btn btn-secondary btn-icon" title="Toggle Sound FX">🔊</button>
+      <button id="btn-theme-toggle" class="btn btn-secondary btn-icon" title="Toggle Theme">🌓</button>
+      <button id="btn-create-room" class="btn btn-primary btn-sm">👑 Host Room</button>
+      <button id="btn-join-room" class="btn btn-secondary btn-sm">🚪 Join Room</button>
+      <button id="btn-profile" class="btn btn-secondary btn-sm">
+        <span id="nav-player-avatar">🚀</span>
+        <span id="nav-player-name">Player</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Game Layout -->
+  <main>
+    <!-- Left Sidebar: Categories & Live Leaderboard -->
+    <aside class="glass-panel sidebar">
+      <div class="panel-title">
+        <span>📂</span>
+        <span>Categories</span>
+      </div>
+      <div class="category-tabs" id="category-selector">
+        <button class="category-btn active" data-category="All">
+          <span>🌟 All Categories</span>
+          <span class="badge" id="cat-count-all">70</span>
+        </button>
+        <button class="category-btn" data-category="Movies">
+          <span>🎬 Movies</span>
+          <span class="badge" id="cat-count-movies">10</span>
+        </button>
+        <button class="category-btn" data-category="TV Series">
+          <span>📺 TV Series</span>
+          <span class="badge" id="cat-count-series">8</span>
+        </button>
+        <button class="category-btn" data-category="Songs & Music">
+          <span>🎵 Songs & Music</span>
+          <span class="badge" id="cat-count-music">8</span>
+        </button>
+        <button class="category-btn" data-category="Food & Drinks">
+          <span>🍕 Food & Drinks</span>
+          <span class="badge" id="cat-count-food">10</span>
+        </button>
+        <button class="category-btn" data-category="Celebrities & Characters">
+          <span>🌟 Celebrities & Characters</span>
+          <span class="badge" id="cat-count-celeb">8</span>
+        </button>
+        <button class="category-btn" data-category="Places & Travel">
+          <span>✈️ Places & Travel</span>
+          <span class="badge" id="cat-count-places">8</span>
+        </button>
+        <button class="category-btn" data-category="Everyday Life & Work">
+          <span>💼 Everyday Life & Work</span>
+          <span class="badge" id="cat-count-work">10</span>
+        </button>
+        <button class="category-btn" data-category="Sports">
+          <span>⚽ Sports</span>
+          <span class="badge" id="cat-count-sports">8</span>
+        </button>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; border-bottom: 1px solid var(--surface-border); padding-bottom: 0.5rem;">
+        <div class="panel-title" style="border: none; padding: 0;">
+          <span>🏆</span>
+          <span>Leaderboard</span>
+        </div>
+        <button id="btn-quick-add-player" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="Add a user as if they joined the room">+ Add User</button>
+      </div>
+      <div class="player-list" id="leaderboard-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--surface-border);">
+        <label style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+          <input type="checkbox" id="toggle-bots" style="accent-color: var(--primary);">
+          <span>Add Practice Teammates (Bots)</span>
+        </label>
+      </div>
+    </aside>
+
+    <!-- Center Stage: The Charade Gameboard -->
+    <section class="glass-panel game-stage">
+      <!-- Round Info Top Bar -->
+      <div class="stage-header">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <span id="puzzle-category-badge" class="stage-badge">
+            <span id="puzzle-category-icon">💻</span>
+            <span id="puzzle-category-name">Technology & Work Phrases</span>
+          </span>
+          <span id="puzzle-difficulty-badge" class="stage-badge" style="color: #34d399;">🟢 Easy</span>
+        </div>
+        <div id="timer-box" class="timer-box">
+          <span>⏱️</span>
+          <span id="timer-text">30s</span>
+        </div>
+      </div>
+
+      <!-- Emoji Card -->
+      <div class="emoji-display-card" id="emoji-card">
+        <div id="permanent-type-hint" class="permanent-type-hint">
+          💡 Category Hint: Loading...
+        </div>
+
+        <div id="emoji-display" class="emoji-chars">
+          🚢 🧊 💔 🌊
+        </div>
+
+        <div class="hint-section" id="hint-section">
+          <div id="hint-mask" class="hint-mask" style="display: none;"></div>
+          <div id="hint-text" class="hint-text" style="display: none;"></div>
+        </div>
+
+        <!-- Winner Banner Overlay -->
+        <div id="winner-banner" class="winner-banner">
+          <div class="winner-headline">🎉 CORRECT!</div>
+          <div id="winner-name-display" style="color: #60a5fa; font-weight: 700; margin-bottom: 0.25rem;">Alex got it first!</div>
+          <div id="winner-answer-display" class="winner-answer">"Titanic"</div>
+          <div id="winner-points-display" class="winner-points">+140 Points</div>
+        </div>
+      </div>
+
+      <!-- Direct Feedback Cue Banner when answer is correct! -->
+      <div id="correct-cue-badge" class="correct-cue-badge">
+        <span>✅ BINGO! You got it right!</span>
+        <span id="correct-cue-details" style="font-size: 0.95rem; font-weight: 600; opacity: 0.95;"></span>
+      </div>
+
+      <!-- Guess Input Box -->
+      <form id="guess-form" class="guess-container">
+        <input 
+          type="text" 
+          id="guess-input" 
+          class="guess-input" 
+          placeholder="Type your guess here & press Enter..." 
+          autocomplete="off" 
+          autofocus
+        >
+        <button type="submit" class="btn btn-primary" id="btn-submit-guess">
+          <span>⚡ Buzz In</span>
+        </button>
+      </form>
+
+      <!-- Host & Round Actions -->
+      <div class="stage-actions">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button id="btn-reveal-hint" class="btn btn-secondary btn-sm">
+            <span>💡 Reveal Hint</span>
+            <span id="hint-counter" style="opacity: 0.7;">(0/3)</span>
+          </button>
+          <button id="btn-next-puzzle" class="btn btn-primary btn-sm">
+            <span>⏭️ Next Charade</span>
+          </button>
+          <button id="btn-manual-award" class="btn btn-secondary btn-sm" title="Award point to someone who shouted answer on Zoom">
+            <span>🏅 Award Shouted Point</span>
+          </button>
+        </div>
+
+        <div>
+          <button id="btn-custom-puzzle" class="btn btn-secondary btn-sm">
+            <span>➕ Create Custom</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Sidebar: Live Guess & Chat Stream -->
+    <aside class="glass-panel chat-panel">
+      <div class="panel-title">
+        <span>💬</span>
+        <span>Live Guesses & Chat</span>
+      </div>
+      <div class="chat-stream" id="chat-stream">
+        <div class="chat-bubble system">
+          Welcome to Emoji Charades! Post your guesses in the box or chat to score points. First to guess wins! 🚀
+        </div>
+      </div>
+      <form id="chat-form" class="chat-input-bar">
+        <input 
+          type="text" 
+          id="chat-input" 
+          class="chat-input" 
+          placeholder="Send a chat message..." 
+          autocomplete="off"
+        >
+        <button type="submit" class="btn btn-secondary btn-sm">Send</button>
+      </form>
+    </aside>
+  </main>
+
+  <!-- MODALS -->
+
+  <!-- Join Room Modal -->
+  <div id="modal-join" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">🚪 Join Team Room</h2>
+        <button class="modal-close" data-close="modal-join">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Room Code (4 Letters)</label>
+        <input type="text" id="join-room-code-input" class="form-input" placeholder="e.g. TECH" maxlength="6" style="text-transform: uppercase; font-size: 1.2rem; letter-spacing: 0.2rem; text-align: center;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Your Name</label>
+        <input type="text" id="join-name-input" class="form-input" placeholder="Your name or nickname">
+      </div>
+      <button id="btn-confirm-join" class="btn btn-primary" style="width: 100%;">Connect & Play</button>
+    </div>
+  </div>
+
+  <!-- Host Room Created Modal -->
+  <div id="modal-host-created" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">👑 Room Created!</h2>
+        <button class="modal-close" data-close="modal-host-created">&times;</button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.95rem;">
+        Share this code or join link with your remote team in Slack, Microsoft Teams, or Zoom chat:
+      </p>
+      <div style="text-align: center; background: rgba(99, 102, 241, 0.15); border: 2px dashed rgba(99, 102, 241, 0.4); padding: 1.25rem; border-radius: var(--radius-md);">
+        <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1rem; color: #a5b4fc;">Room Code</div>
+        <div id="host-room-code-display" style="font-size: 2.8rem; font-weight: 800; letter-spacing: 0.4rem; color: #fff;">----</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Direct Share Link</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="host-share-link-input" class="form-input" readonly style="font-size: 0.85rem;">
+          <button id="btn-modal-copy-link" class="btn btn-secondary">Copy</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" data-close="modal-host-created" style="width: 100%;">Let's Play!</button>
+    </div>
+  </div>
+
+  <!-- Create Custom Charade Modal -->
+  <div id="modal-custom" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">➕ Create Custom Emoji Charade</h2>
+        <button class="modal-close" data-close="modal-custom">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select id="custom-category-select" class="form-select">
+          <option value="Movies">🎬 Movies</option>
+          <option value="TV Series">📺 TV Series</option>
+          <option value="Songs & Music">🎵 Songs & Music</option>
+          <option value="Food & Drinks">🍕 Food & Drinks</option>
+          <option value="Celebrities & Characters">🌟 Celebrities & Characters</option>
+          <option value="Places & Travel">✈️ Places & Travel</option>
+          <option value="Everyday Life & Work">💼 Everyday Life & Work</option>
+          <option value="Sports">⚽ Sports</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emojis (Type 3-5 emojis)</label>
+        <input type="text" id="custom-emojis-input" class="form-input" placeholder="e.g. 🍕 ⏰ 🏃" style="font-size: 1.3rem;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">The Correct Answer</label>
+        <input type="text" id="custom-answer-input" class="form-input" placeholder="e.g. Pizza Time">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Optional Hint</label>
+        <input type="text" id="custom-hint-input" class="form-input" placeholder="e.g. Famous catchphrase from Spider-Man 2">
+      </div>
+      <button id="btn-submit-custom-charade" class="btn btn-primary" style="width: 100%;">Post to Team Now</button>
+    </div>
+  </div>
+
+  <!-- Profile & Avatar Modal -->
+  <div id="modal-profile" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">👤 Edit Player Profile</h2>
+        <button class="modal-close" data-close="modal-profile">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Display Name</label>
+        <input type="text" id="profile-name-input" class="form-input" placeholder="Your name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Choose Avatar</label>
+        <div class="avatar-picker" id="avatar-picker">
+          <button type="button" class="avatar-option selected" data-avatar="🚀">🚀</button>
+          <button type="button" class="avatar-option" data-avatar="🧑‍💻">🧑‍💻</button>
+          <button type="button" class="avatar-option" data-avatar="🤖">🤖</button>
+          <button type="button" class="avatar-option" data-avatar="🦊">🦊</button>
+          <button type="button" class="avatar-option" data-avatar="🦁">🦁</button>
+          <button type="button" class="avatar-option" data-avatar="🧙‍♂️">🧙‍♂️</button>
+          <button type="button" class="avatar-option" data-avatar="👑">👑</button>
+          <button type="button" class="avatar-option" data-avatar="☕">☕</button>
+          <button type="button" class="avatar-option" data-avatar="🍕">🍕</button>
+          <button type="button" class="avatar-option" data-avatar="⚡">⚡</button>
+        </div>
+      </div>
+      <button id="btn-save-profile" class="btn btn-primary" style="width: 100%;">Save Profile</button>
+    </div>
+  </div>
+
+  <!-- Manual Award Modal (For Zoom Screen Share meetings) -->
+  <div id="modal-award" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">🏅 Award Point to Teammate</h2>
+        <button class="modal-close" data-close="modal-award">&times;</button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Did a team member shout the answer out loud on Zoom/Teams? Select their name below to give them credit for this round:
+      </p>
+      <div id="award-player-buttons" style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Welcome / Entry Screen Modal (For Vercel & First Visit) -->
+  <div id="modal-welcome" class="modal-overlay">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 2.2rem;">🎭</span>
+          <div>
+            <h2 class="modal-title">Welcome to Emoji Charades!</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Enter your info to join the game</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Your Name / Nickname</label>
+        <input type="text" id="welcome-name-input" class="form-input" placeholder="e.g. Alex, Sarah, David" style="font-size: 1.1rem; font-weight: 600;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Choose Your Avatar</label>
+        <div class="avatar-picker" id="welcome-avatar-picker">
+          <button type="button" class="avatar-option selected" data-avatar="🚀">🚀</button>
+          <button type="button" class="avatar-option" data-avatar="🧑‍💻">🧑‍💻</button>
+          <button type="button" class="avatar-option" data-avatar="🦊">🦊</button>
+          <button type="button" class="avatar-option" data-avatar="🦁">🦁</button>
+          <button type="button" class="avatar-option" data-avatar="🤖">🤖</button>
+          <button type="button" class="avatar-option" data-avatar="🍕">🍕</button>
+          <button type="button" class="avatar-option" data-avatar="👑">👑</button>
+          <button type="button" class="avatar-option" data-avatar="☕">☕</button>
+          <button type="button" class="avatar-option" data-avatar="⚡">⚡</button>
+        </div>
+      </div>
+
+      <div class="form-group" id="welcome-room-section">
+        <label class="form-label">Room Code (Leave blank to Host or Practice)</label>
+        <input type="text" id="welcome-room-code-input" class="form-input" placeholder="e.g. TECH" maxlength="6" style="text-transform: uppercase; font-size: 1.2rem; letter-spacing: 0.2rem; text-align: center;">
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem;">
+        <button id="btn-welcome-enter" class="btn btn-primary" style="font-size: 1.05rem; padding: 0.75rem;">
+          <span>🚀 Enter Game & Join Room</span>
+        </button>
+        <button id="btn-welcome-solo" class="btn btn-secondary btn-sm" style="font-size: 0.88rem;">
+          <span>🎮 Quick Practice / Solo Mode</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Add Teammate Modal (Add users directly to room) -->
+  <div id="modal-add-teammate" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">➕ Add Teammate to Room</h2>
+        <button class="modal-close" data-close="modal-add-teammate">&times;</button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Add a coworker to the live room roster as if they just joined:
+      </p>
+      <div class="form-group">
+        <label class="form-label">Teammate's Name</label>
+        <input type="text" id="add-teammate-name-input" class="form-input" placeholder="e.g. Carlos, Emma, Jordan">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Avatar</label>
+        <div class="avatar-picker" id="add-teammate-avatar-picker">
+          <button type="button" class="avatar-option selected" data-avatar="🧑‍💻">🧑‍💻</button>
+          <button type="button" class="avatar-option" data-avatar="🦊">🦊</button>
+          <button type="button" class="avatar-option" data-avatar="🦁">🦁</button>
+          <button type="button" class="avatar-option" data-avatar="🎨">🎨</button>
+          <button type="button" class="avatar-option" data-avatar="👑">👑</button>
+          <button type="button" class="avatar-option" data-avatar="☕">☕</button>
+          <button type="button" class="avatar-option" data-avatar="🚀">🚀</button>
+        </div>
+      </div>
+      <button id="btn-confirm-add-teammate" class="btn btn-primary" style="width: 100%;">Add User to Room</button>
+    </div>
+  </div>
+
+  <!-- Core Scripts -->
+  <script src="puzzles.js"></script>
+  <script src="audio.js"></script>
+  <script src="game.js"></script>
+  <script src="multiplayer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
