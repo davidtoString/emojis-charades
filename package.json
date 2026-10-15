@@ -1,12 +1,9 @@
 {
   "name": "emoji-charades",
   "version": "1.0.0",
-  "description": "Emoji Charades web app for remote teams - Movies, Series, Music & Technology",
-  "main": "server.js",
+  "description": "Emoji Charades - Remote Team Edition",
   "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.19.2"
+    "start": "node server.js",
+    "build": "echo 'Static build ready'"
   }
 }
